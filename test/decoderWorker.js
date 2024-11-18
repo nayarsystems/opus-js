@@ -44,7 +44,7 @@ describe('decoderWorker', function() {
   it('should initialize config', function () {
     expect(decoder.config).to.have.property('decoderSampleRate', 48000);
     expect(decoder.config).to.have.property('outputBufferSampleRate', 48000);
-    expect(decoder.config).to.have.property('bufferLength', 4096);
+    //expect(decoder.config).to.have.property('bufferLength', 4096);
     expect(decoder.config).to.have.property('resampleQuality', 3);
   });
 
