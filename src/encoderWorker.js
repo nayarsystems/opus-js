@@ -484,7 +484,7 @@ else {
         break;
 
       case 'init':
-        encoder = new OggOpusEncoder( data, OpusEncoderLib );
+        encoder = new OggOpusEncoder( data, Module );
         postMessage( {message: 'ready'} );
         break;
 

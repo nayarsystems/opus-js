@@ -25,6 +25,7 @@ var Recorder = function( config = {} ){
     resampleQuality: 3,
     streamPages: false,
     wavBitDepth: 16,
+    rawOpus: false,
     sourceNode: { context: null },
   }, config );
 
@@ -249,7 +250,9 @@ Recorder.prototype.start = function(){
       .then(() => Promise.all([this.initSourceNode(), this.initWorker()]))
       .then(() => {
         this.state = "recording";
-        this.encoder.postMessage({ command: 'getHeaderPages' });
+        if (!this.config.rawOpus){
+          this.encoder.postMessage({ command: 'getHeaderPages' });
+        }
         this.sourceNode.connect( this.monitorGainNode );
         this.sourceNode.connect( this.recordingGainNode );
         this.monitorGainNode.connect( this.audioContext.destination );
