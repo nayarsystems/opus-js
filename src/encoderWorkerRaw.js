@@ -38,6 +38,8 @@ var RawOpusEncoder = function( config, Module ){
     }
   }
 
+  this.samplePosition = 0;
+
   this.initCodec();
   this.initResampler();
 
@@ -75,8 +77,10 @@ RawOpusEncoder.prototype.encode = function( buffers ) {
       }
       var packetLength = this._opus_encode_float( this.encoder, this.encoderBufferPointer, this.encoderSamplesPerChannel, this.encoderOutputPointer, this.encoderOutputMaxLength );
 
-      var exportPage = { message: 'page', page: new Uint8Array(this.encoderOutputBuffer.subarray(0, packetLength))}
-    
+      var exportPage = { message: 'page', page: new Uint8Array(this.encoderOutputBuffer.subarray(0, packetLength)), samplePosition: this.samplePosition}
+      
+      this.samplePosition += this.encoderSamplesPerChannel;
+
       exportPages.push(exportPage);
 
       this.sampleBufferIndex = 0;
