@@ -34,12 +34,13 @@ Creates a recorder instance.
 #### General Config options
 
 - **bufferLength**                - (*optional*) The length of the buffer that the scriptProcessorNode uses to capture the audio. Defaults to `4096`.
-- **encoderPath**                 - (*optional*) Path to desired worker script. Defaults to `encoderWorker.min.js`
+- **encoderPath**                 - (*optional*) Path to desired worker script. Defaults to `encoderWorker.min.js`, use `encoderWorkerRaw.min.js` for encoding without ogg
 - **mediaTrackConstraints**       - (*optional*) Object to specify [media track constraints](https://developer.mozilla.org/en-US/docs/Web/API/MediaTrackConstraints). Defaults to `true`.
-- **monitorGain**                 - (*optional*) Sets the gain of the monitoring output. Gain is an a-weighted value between `0` and `1`. Defaults to `0`
+- **monitorGain**                 - (*optional*) Sets the gain of the monitoring output. Gain is an a-weighted value between `0` and `1`. Defaults to `0`, keep at 0 unless you are trying to debug the audio recorder.
 - **numberOfChannels**            - (*optional*) The number of channels to record. `1` = mono, `2` = stereo. Defaults to `1`. Maximum `2` channels are supported.
 - **recordingGain**               - (*optional*) Sets the gain of the recording input. Gain is an a-weighted value between `0` and `1`. Defaults to `1`
 - **sourceNode**                  - (*optional*) An Instance of MediaStreamAudioSourceNode to use. If a sourceNode is provided, then closing the stream and audioContext will need to be managed by the implementation.
+- **rawOpus**                     - (*optional*) Wether to encode using ogg container or only raw samples. Set to `true` when using `encoderWorkerRaw.min.js`
 
 
 #### Config options for OGG OPUS encoder
@@ -52,13 +53,16 @@ Creates a recorder instance.
 - **maxFramesPerPage**            - (*optional*) Maximum number of frames to collect before generating an Ogg page. This can be used to lower the streaming latency. The lower the value the more overhead the ogg stream will incur. Defaults to `40`.
 - **originalSampleRateOverride**  - (*optional*) Override the ogg opus 'input sample rate' field. Google Speech API requires this field to be `16000`.
 - **resampleQuality**             - (*optional*) Value between 0 and 10 which determines latency and processing for resampling. `0` is fastest with lowest quality. `10` is slowest with highest quality. Defaults to `3`.
-- **streamPages**                 - (*optional*) `dataAvailable` event will fire after each encoded page. Defaults to `false`.
+- **streamPages**                 - (*optional*) `dataAvailable` event will fire after each encoded page. Defaults to `false`. When using the RAW encoder a `dataavailable` will be fire with each Frame, ignoring `maxFramesPerPage`. 
 
 
 #### Config options for WAV recorder
 
 - **wavBitDepth**                 - (*optional*) Desired bit depth of the WAV file. Defaults to `16`. Supported values are `8`, `16`, `24` and `32` bits per sample.
 
+#### RAW vs OGG/OPUS
+
+The `encoderWorker` and `decoderWorker` output opus contained on a ogg stream. To obtain RAW opus just use `encoderWorkerRaw` and `decoderWorkerRaw`.
 
 ---------
 #### Instance Methods
@@ -92,7 +96,7 @@ rec.setRecordingGain( gain )
 rec.setMonitorGain( gain )
 ```
 
-**setMonitorGain** will set the volume on what will be passed to the monitor. Monitor level does not affect the recording volume. Gain is an a-weighted value between `0` and `1`.
+**setMonitorGain** will set the volume on what will be passed to the monitor. Monitor level does not affect the recording volume. Gain is an a-weighted value between `0` and `1`. The Monitor Output is played in loopback, set to 0 in production.
 
 ```js
 rec.start()
@@ -140,7 +144,7 @@ The version of the library.
 ```js
 rec.ondataavailable( arrayBuffer )
 ```
-A callback which returns an array buffer of audio data. If `streamPages` is `true`, this will be called with each page of encoded audio.  If `streamPages` is `false`, this will be called when the recording is finished with the complete data.
+A callback which returns an array buffer of audio data. If `streamPages` is `true`, this will be called with each page of encoded audio.  If `streamPages` is `false`, this will be called when the recording is finished with the complete data. When using the Raw encoder, this will be called with each generated packet. If using the RAW encoder, this will be called for each frame.
 
 
 ```js
@@ -166,33 +170,6 @@ rec.onstop()
 ```
 
 A callback which occurs when media recording ends.
-
----------
-### Getting started with webpack
-- To use in a web-app built with webpack, be sure to load the worker files as a chunk. This can be done with file-loader plugin.
-
-Add to your webpack.config.js before all other loaders.
-```js
-module.exports = {
-  module: {
-    rules: [
-      {
-        test: /encoderWorker\.min\.js$/,
-        use: [{ loader: 'file-loader' }]
-      }
-    ]
-  }
-};
-```
-
-Then get the encoderPath using an import
-```js
-import Recorder from 'opus-recorder';
-import encoderPath from 'opus-recorder/dist/encoderWorker.min.js';
-
-const rec = new Recorder({ encoderPath });
-```
-
 
 ---------
 ### Gotchas
@@ -262,6 +239,6 @@ npm test
 
 Clean the dist folder and git submodules:
 ```bash
-make clean
+make cleanAll
 ```
 
