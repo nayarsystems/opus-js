@@ -8,3 +8,6 @@
   branch = SpeexDSP-1.2.0
 [opus "opus"]
 	branch = v1.5.1
+[submodule "codec2"]
+	path = codec2
+	url = git@github.com:drowe67/codec2.git
