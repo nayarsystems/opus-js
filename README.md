@@ -5,8 +5,8 @@ A javascript library to encode the output of Web Audio API nodes in Ogg Opus or 
 
 #### Libraries Used
 
-- Libopus: v1.3.1 compiled with emscripten 2.0.31
-- speexDSP: 1.2.0 compiled with emscripten 2.0.31
+- Libopus: v1.3.1 compiled with emscripten 3.1.73-git
+- speexDSP: 1.2.0 compiled with emscripten 3.1.73-git
 
 #### Required Files
 
@@ -218,9 +218,13 @@ Windows: Install autotools using [MSYS2](http://www.msys2.org/)
 pacman -S make autoconf automake libtool pkgconfig
 ```
 
-[Install Node.js](https://nodejs.org/en/download/)
+[Install Nix](https://nixos.org/download/)
 
-[Install EMScripten](https://kripken.github.io/emscripten-site/docs/getting_started/downloads.html)
+Start nix dev shell:
+```bash
+nix develop
+```
+
 
 Install npm dependencies:
 ```bash

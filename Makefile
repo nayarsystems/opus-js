@@ -57,12 +57,12 @@ $(LIBOPUS_DIR)/autogen.sh $(LIBSPEEXDSP_DIR)/autogen.sh:
 
 $(LIBOPUS_OBJ): $(LIBOPUS_DIR)/autogen.sh
 	cd $(LIBOPUS_DIR); ./autogen.sh
-	cd $(LIBOPUS_DIR); emconfigure ./configure --disable-extra-programs --disable-doc --disable-intrinsics --disable-rtcd --disable-stack-protector
+	cd $(LIBOPUS_DIR); emconfigure ./configure --host=wasm32-unknown-emscripten --disable-extra-programs --disable-doc --disable-intrinsics --disable-rtcd --disable-stack-protector
 	cd $(LIBOPUS_DIR); emmake make
 
 $(LIBSPEEXDSP_OBJ): $(LIBSPEEXDSP_DIR)/autogen.sh
 	cd $(LIBSPEEXDSP_DIR); ./autogen.sh
-	cd $(LIBSPEEXDSP_DIR); emconfigure ./configure --disable-examples --disable-neon
+	cd $(LIBSPEEXDSP_DIR); emconfigure ./configure --host=wasm32-unknown-emscripten --disable-examples --disable-neon
 	cd $(LIBSPEEXDSP_DIR); emmake make
 
 $(LIBOPUS_ENCODER): $(LIBOPUS_ENCODER_SRC) $(LIBOPUS_OBJ) $(LIBSPEEXDSP_OBJ)
@@ -87,11 +87,11 @@ $(LIBOPUS_ENCODER_RAW_MIN): $(LIBOPUS_ENCODER_RAW_SRC) $(LIBOPUS_OBJ) $(LIBSPEEX
 
 $(LIBOPUS_DECODER_RAW): $(LIBOPUS_DECODER_RAW_SRC) $(LIBOPUS_OBJ) $(LIBSPEEXDSP_OBJ)
 	npm run webpack -- --config webpack.config.js -d --output-library DecoderWorkerRaw $(LIBOPUS_DECODER_RAW_SRC) -o $@
-	emcc -o $@ $(EMCC_OPTS) -g3 -s EXPORTED_FUNCTIONS="[$(DEFAULT_EXPORTS),$(LIBOPUS_DECODER_EXPORTS),$(LIBSPEEXDSP_EXPORTS)]" --pre-js $@ $(LIBOPUS_OBJ) $(LIBSPEEXDSP_OBJ)
+	emcc  -o $@ $(EMCC_OPTS) -g3 -s EXPORTED_FUNCTIONS="[$(DEFAULT_EXPORTS),$(LIBOPUS_DECODER_EXPORTS),$(LIBSPEEXDSP_EXPORTS)]" --pre-js $@ $(LIBOPUS_OBJ) $(LIBSPEEXDSP_OBJ)
 
 $(LIBOPUS_DECODER_RAW_MIN): $(LIBOPUS_DECODER_RAW_SRC) $(LIBOPUS_OBJ) $(LIBSPEEXDSP_OBJ)
 	npm run webpack -- --config webpack.config.js -p --output-library DecoderWorkerRaw $(LIBOPUS_DECODER_RAW_SRC) -o $@
-	emcc -o $@ $(EMCC_OPTS) -s EXPORTED_FUNCTIONS="[$(DEFAULT_EXPORTS),$(LIBOPUS_DECODER_EXPORTS),$(LIBSPEEXDSP_EXPORTS)]" --pre-js $@ $(LIBOPUS_OBJ) $(LIBSPEEXDSP_OBJ)
+	emcc  -o $@ $(EMCC_OPTS) -s EXPORTED_FUNCTIONS="[$(DEFAULT_EXPORTS),$(LIBOPUS_DECODER_EXPORTS),$(LIBSPEEXDSP_EXPORTS)]" --pre-js $@ $(LIBOPUS_OBJ) $(LIBSPEEXDSP_OBJ)
 
 $(RECORDER): $(RECORDER_SRC)
 	npm run webpack -- --config webpack.config.js -d --output-library Recorder $(RECORDER_SRC) -o $@

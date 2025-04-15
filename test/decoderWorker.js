@@ -9,9 +9,9 @@ var should = chai.should();
 var expect = chai.expect;
 
 
-describe('decoderWorker', function() {
+describe('decoderWorker', function () {
 
-  var Module = require('../dist/decoderWorker.min');
+  var Module = require('../dist-unminified/decoderWorker');
   var decoder;
   var _opus_decoder_create_spy;
   var _opus_decoder_destroy_spy;
@@ -22,11 +22,11 @@ describe('decoderWorker', function() {
   var stereoOpus = new Uint8Array(fs.readFileSync('../test/sample/stereo.opus'));
   var joinedMonoOpus = new Uint8Array(fs.readFileSync('../test/sample/joinedMono.opus'));
 
-  beforeEach(function(){
+  beforeEach(function () {
     global.postMessage = sinon.stub();
     global.close = sinon.stub();
 
-    return Module.mainReady.then(function(){
+    return Module.mainReady.then(function () {
       _opus_decoder_create_spy = sinon.spy(Module, '_opus_decoder_create');
       _opus_decoder_destroy_spy = sinon.spy(Module, '_opus_decoder_destroy');
       _speex_resampler_process_interleaved_float_spy = sinon.spy(Module, '_speex_resampler_process_interleaved_float');

@@ -1,17 +1,34 @@
 "use strict";
+function atob(input) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  let str = input.replace(/=+$/, '');
+  let output = '';
 
-const WavePCM = function( config ){
+  if (str.length % 4 === 1) {
+    throw new Error("'atob' failed: The string to be decoded is not correctly encoded.");
+  }
+
+  for (let bc = 0, bs = 0, buffer, i = 0; buffer = str.charAt(i++); ~buffer &&
+    (bs = bc % 4 ? bs * 64 + buffer : buffer,
+      bc++ % 4) ? output += String.fromCharCode(255 & bs >> (-2 * bc & 6)) : 0
+  ) {
+    buffer = chars.indexOf(buffer);
+  }
+
+  return output;
+}
+const WavePCM = function (config) {
 
   var config = Object.assign({
     wavBitDepth: 16,
     numberOfChannels: 1,
   }, config);
 
-  if ( !config['wavSampleRate'] ) {
+  if (!config['wavSampleRate']) {
     throw new Error("wavSampleRate value is required to record. NOTE: Audio is not resampled!");
   }
 
-  if ( [8, 16, 24, 32].indexOf( config['wavBitDepth'] ) === -1 ) {
+  if ([8, 16, 24, 32].indexOf(config['wavBitDepth']) === -1) {
     throw new Error("Only 8, 16, 24 and 32 bits per sample are supported");
   }
 
@@ -22,44 +39,44 @@ const WavePCM = function( config ){
   this.bytesPerSample = this.bitDepth / 8;
 };
 
-WavePCM.prototype.record = function( buffers ){
+WavePCM.prototype.record = function (buffers) {
   var bufferLength = buffers[0].length;
-  var reducedData = new Uint8Array( bufferLength * this.numberOfChannels * this.bytesPerSample );
+  var reducedData = new Uint8Array(bufferLength * this.numberOfChannels * this.bytesPerSample);
 
   // Interleave
-  for ( var i = 0; i < bufferLength; i++ ) {
-    for ( var channel = 0; channel < this.numberOfChannels; channel++ ) {
+  for (var i = 0; i < bufferLength; i++) {
+    for (var channel = 0; channel < this.numberOfChannels; channel++) {
 
-      var outputIndex = ( i * this.numberOfChannels + channel ) * this.bytesPerSample;
+      var outputIndex = (i * this.numberOfChannels + channel) * this.bytesPerSample;
 
       // clip the signal if it exceeds [-1, 1]
-      var sample = Math.max(-1, Math.min(1, buffers[ channel ][ i ]));
+      var sample = Math.max(-1, Math.min(1, buffers[channel][i]));
 
       // bit reduce and convert to integer
-      switch ( this.bytesPerSample ) {
+      switch (this.bytesPerSample) {
         case 4: // 32 bits signed
           sample = sample * 2147483647.5 - 0.5;
-          reducedData[ outputIndex ] = sample;
-          reducedData[ outputIndex + 1 ] = sample >> 8;
-          reducedData[ outputIndex + 2 ] = sample >> 16;
-          reducedData[ outputIndex + 3 ] = sample >> 24;
+          reducedData[outputIndex] = sample;
+          reducedData[outputIndex + 1] = sample >> 8;
+          reducedData[outputIndex + 2] = sample >> 16;
+          reducedData[outputIndex + 3] = sample >> 24;
           break;
 
         case 3: // 24 bits signed
           sample = sample * 8388607.5 - 0.5;
-          reducedData[ outputIndex ] = sample;
-          reducedData[ outputIndex + 1 ] = sample >> 8;
-          reducedData[ outputIndex + 2 ] = sample >> 16;
+          reducedData[outputIndex] = sample;
+          reducedData[outputIndex + 1] = sample >> 8;
+          reducedData[outputIndex + 2] = sample >> 16;
           break;
 
         case 2: // 16 bits signed
           sample = sample * 32767.5 - 0.5;
-          reducedData[ outputIndex ] = sample;
-          reducedData[ outputIndex + 1 ] = sample >> 8;
+          reducedData[outputIndex] = sample;
+          reducedData[outputIndex + 1] = sample >> 8;
           break;
 
         case 1: // 8 bits unsigned
-          reducedData[ outputIndex ] = (sample + 1) * 127.5;
+          reducedData[outputIndex] = (sample + 1) * 127.5;
           break;
 
         default:
@@ -68,35 +85,35 @@ WavePCM.prototype.record = function( buffers ){
     }
   }
 
-  this.recordedBuffers.push( reducedData );
+  this.recordedBuffers.push(reducedData);
 };
 
-WavePCM.prototype.requestData = function(){
+WavePCM.prototype.requestData = function () {
   var bufferLength = this.recordedBuffers[0].length;
   var dataLength = this.recordedBuffers.length * bufferLength;
   var headerLength = 44;
-  var wav = new Uint8Array( headerLength + dataLength );
-  var view = new DataView( wav.buffer );
+  var wav = new Uint8Array(headerLength + dataLength);
+  var view = new DataView(wav.buffer);
 
-  view.setUint32( 0, 1380533830, false ); // RIFF identifier 'RIFF'
-  view.setUint32( 4, 36 + dataLength, true ); // file length minus RIFF identifier length and file description length
-  view.setUint32( 8, 1463899717, false ); // RIFF type 'WAVE'
-  view.setUint32( 12, 1718449184, false ); // format chunk identifier 'fmt '
-  view.setUint32( 16, 16, true ); // format chunk length
-  view.setUint16( 20, 1, true ); // sample format (raw)
-  view.setUint16( 22, this.numberOfChannels, true ); // channel count
-  view.setUint32( 24, this.sampleRate, true ); // sample rate
-  view.setUint32( 28, this.sampleRate * this.bytesPerSample * this.numberOfChannels, true ); // byte rate (sample rate * block align)
-  view.setUint16( 32, this.bytesPerSample * this.numberOfChannels, true ); // block align (channel count * bytes per sample)
-  view.setUint16( 34, this.bitDepth, true ); // bits per sample
-  view.setUint32( 36, 1684108385, false); // data chunk identifier 'data'
-  view.setUint32( 40, dataLength, true ); // data chunk length
+  view.setUint32(0, 1380533830, false); // RIFF identifier 'RIFF'
+  view.setUint32(4, 36 + dataLength, true); // file length minus RIFF identifier length and file description length
+  view.setUint32(8, 1463899717, false); // RIFF type 'WAVE'
+  view.setUint32(12, 1718449184, false); // format chunk identifier 'fmt '
+  view.setUint32(16, 16, true); // format chunk length
+  view.setUint16(20, 1, true); // sample format (raw)
+  view.setUint16(22, this.numberOfChannels, true); // channel count
+  view.setUint32(24, this.sampleRate, true); // sample rate
+  view.setUint32(28, this.sampleRate * this.bytesPerSample * this.numberOfChannels, true); // byte rate (sample rate * block align)
+  view.setUint16(32, this.bytesPerSample * this.numberOfChannels, true); // block align (channel count * bytes per sample)
+  view.setUint16(34, this.bitDepth, true); // bits per sample
+  view.setUint32(36, 1684108385, false); // data chunk identifier 'data'
+  view.setUint32(40, dataLength, true); // data chunk length
 
-  for (var i = 0; i < this.recordedBuffers.length; i++ ) {
-    wav.set( this.recordedBuffers[i], i * bufferLength + headerLength );
+  for (var i = 0; i < this.recordedBuffers.length; i++) {
+    wav.set(this.recordedBuffers[i], i * bufferLength + headerLength);
   }
 
-  return {message: 'page', page: wav};
+  return { message: 'page', page: wav };
 };
 
 
@@ -105,16 +122,16 @@ if (typeof registerProcessor === 'function') {
 
   class EncoderWorklet extends AudioWorkletProcessor {
 
-    constructor(){
+    constructor() {
       super();
       this.continueProcess = true;
       this.port.onmessage = ({ data }) => {
-        switch( data['command'] ){
+        switch (data['command']) {
 
           case 'done':
             if (this.recorder) {
               this.postPage(this.recorder.requestData());
-              this.port.postMessage( {message: 'done'} );
+              this.port.postMessage({ message: 'done' });
               delete this.recorder;
             }
             break;
@@ -124,26 +141,26 @@ if (typeof registerProcessor === 'function') {
             break;
 
           case 'init':
-            this.recorder = new WavePCM( data );
-            this.port.postMessage( {message: 'ready'} );
+            this.recorder = new WavePCM(data);
+            this.port.postMessage({ message: 'ready' });
             break;
 
           default:
-            // Ignore any unknown commands and continue recieving commands
+          // Ignore any unknown commands and continue recieving commands
         }
       }
     }
 
     process(inputs) {
-      if (this.recorder && inputs[0] && inputs[0].length && inputs[0][0] && inputs[0][0].length){
-        this.recorder.record( inputs[0] );
+      if (this.recorder && inputs[0] && inputs[0].length && inputs[0][0] && inputs[0][0].length) {
+        this.recorder.record(inputs[0]);
       }
       return this.continueProcess;
     }
 
     postPage(pageData) {
       if (pageData) {
-        this.port.postMessage( pageData, [pageData.page.buffer] );
+        this.port.postMessage(pageData, [pageData.page.buffer]);
       }
     }
   }
@@ -156,24 +173,24 @@ else {
   var recorder;
   var postPageGlobal = (pageData) => {
     if (pageData) {
-      postMessage( pageData, [pageData.page.buffer] );
+      postMessage(pageData, [pageData.page.buffer]);
     }
   }
 
   onmessage = ({ data }) => {
 
-    switch( data['command'] ){
+    switch (data['command']) {
 
       case 'encode':
         if (recorder) {
-          recorder.record( data['buffers'] );
+          recorder.record(data['buffers']);
         }
         break;
 
       case 'done':
         if (recorder) {
           postPageGlobal(recorder.requestData());
-          postMessage( {message: 'done'} );
+          postMessage({ message: 'done' });
           recorder = null;
         }
         break;
@@ -183,12 +200,12 @@ else {
         break;
 
       case 'init':
-        recorder = new WavePCM( data );
-        postMessage( {message: 'ready'} );
+        recorder = new WavePCM(data);
+        postMessage({ message: 'ready' });
         break;
 
       default:
-        // Ignore any unknown commands and continue recieving commands
+      // Ignore any unknown commands and continue recieving commands
     }
   };
 }
