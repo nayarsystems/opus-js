@@ -5,8 +5,8 @@ A javascript library to encode the output of Web Audio API nodes in Ogg Opus or 
 
 #### Libraries Used
 
-- Libopus: v1.3.1 compiled with emscripten 3.1.73-git
-- speexDSP: 1.2.0 compiled with emscripten 3.1.73-git
+- Libopus: v1.5.1 compiled with emscripten 3.1.73-git
+- speexDSP: 1.2.1 compiled with emscripten 3.1.73-git
 
 #### Required Files
 
