@@ -113,7 +113,6 @@ Recorder.prototype.encodeBuffers = function (inputBuffer) {
 
 Recorder.prototype.initAudioContext = function () {
   this.audioContext = this.config.sourceNode.context ? this.config.sourceNode.context : new AudioContext();
-
   this.monitorGainNode = this.audioContext.createGain();
   this.setMonitorGain(this.config.monitorGain);
 

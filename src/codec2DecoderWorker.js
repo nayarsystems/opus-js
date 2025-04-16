@@ -41,7 +41,7 @@ global['onmessage'] = function (e) {
                 break;
 
             case 'init':
-                decoder = new RawOpusDecoder(e['data'], Module);
+                decoder = new Codec2Decoder(e['data'], Module);
                 break;
 
             default:
@@ -50,31 +50,45 @@ global['onmessage'] = function (e) {
     });
 };
 
-var RawOpusDecoder = function (config, Module) {
+var Codec2Decoder = function (config, Module) {
 
     if (!Module) {
         throw new Error('Module with exports required to initialize a decoder instance');
     }
 
     this.mainReady = mainReady; // Expose for unit testing
+
     this.config = Object.assign({
         bufferLength: 4096, // Define size of outgoing buffer
-        decoderSampleRate: 48000, // Desired decoder sample rate.
-        outputBufferSampleRate: 48000, // Desired output sample rate. Audio will be resampled
+
+        mode: 0, // 0 = Mode3200, 1 = Mode2400, 2 = Mode1600, 3 = Mode1400, 4 = Mode1300, 5 = Mode1200, 6 = Mode700, 7 = Mode700B, 8 = Mode700C
+        encoderFrameSize: 20, // Specified in ms.
+        bytesPerFrame: 8,
+
+        encoderSampleRate: 8000, // Desired encoding sample rate. Audio will be resampled
+        originalSampleRate: 48000,
         resampleQuality: 3, // Value between 0 and 10 inclusive. 10 being highest quality.
-        numberOfChannels: 1,
     }, config);
 
-    this._opus_decoder_create = Module._opus_decoder_create;
-    this._opus_decoder_destroy = Module._opus_decoder_destroy;
+
+    this._codec2_create = Module._codec2_create;
+    this._codec2_destroy = Module._codec2_destroy;
+    this._codec2_encode = Module._codec2_encode;
+    this._codec2_decode = Module._codec2_decode;
+    this._codec2_samples_per_frame = Module._codec2_samples_per_frame;
+    this._codec2_bits_per_frame = Module._codec2_bits_per_frame;
+    this._codec2_bytes_per_frame = Module._codec2_bytes_per_frame;
+
+
     this._speex_resampler_process_interleaved_float = Module._speex_resampler_process_interleaved_float;
     this._speex_resampler_init = Module._speex_resampler_init;
     this._speex_resampler_destroy = Module._speex_resampler_destroy;
-    this._opus_decode_float = Module._opus_decode_float;
     this._free = Module._free;
     this._malloc = Module._malloc;
+
     this.HEAPU8 = Module.HEAPU8;
     this.HEAP32 = Module.HEAP32;
+    this.HEAP16 = Module.HEAP16;
     this.HEAPF32 = Module.HEAPF32;
 
     this.outputBuffers = [];
@@ -82,7 +96,7 @@ var RawOpusDecoder = function (config, Module) {
 };
 
 
-RawOpusDecoder.prototype.decode = function (typedArray) {
+Codec2Decoder.prototype.decode = function (typedArray) {
     var dataLength = typedArray.length * typedArray.BYTES_PER_ELEMENT;
     if (dataLength === 0) {
         return;
@@ -96,12 +110,19 @@ RawOpusDecoder.prototype.decode = function (typedArray) {
     this.decoderBufferIndex += packetLength;
 
     // Decode raw opus packet
-    var outputSampleLength = this._opus_decode_float(this.decoder, this.decoderBufferPointer, typedArray.length, this.decoderOutputPointer, this.decoderOutputMaxLength, 0);
-    var output;
+    //var outputSampleLength = this._opus_decode_float(this.decoder, this.decoderBufferPointer, typedArray.length, this.decoderOutputPointer, this.decoderOutputMaxLength, 0);
+    this._codec2_decode(this.encoder, this.decoderOutputBufferPointer_u16, this.decoderBufferPointer);
 
-    output = this.HEAPF32.subarray(this.decoderOutputPointer >> 2, (this.decoderOutputPointer >> 2) + outputSampleLength * this.config.numberOfChannels);
+    // convert decoderOutputBuffer_u16 to Float32Array
+    console.log("vik0t0r output int16", this.decoderOutputBuffer_u16);
 
-    this.sendToOutputBuffers(output);
+    for (let i = 0; i < this.decoderBufferLength; i++) {
+        var uint16_sample = this.decoderOutputBuffer_u16[i];
+        this.decoderOutput[i] = (uint16_sample / 32767.5) - 1.0;
+    }
+
+    console.log("vik0t0r output", this.decoderOutput);
+    this.sendToOutputBuffers(this.decoderOutput);
 
     this.decoderBufferIndex = 0;
 
@@ -110,51 +131,45 @@ RawOpusDecoder.prototype.decode = function (typedArray) {
 
 };
 
-RawOpusDecoder.prototype.getPageBoundaries = function (dataView) {
-    var pageBoundaries = [];
-
-    for (var i = 0; i < dataView.byteLength - 4; i++) {
-        if (dataView.getUint32(i, true) == 1399285583) {
-            pageBoundaries.push(i);
-        }
-    }
-
-    return pageBoundaries;
-};
-
-RawOpusDecoder.prototype.init = function () {
+Codec2Decoder.prototype.init = function () {
     this.resetOutputBuffers();
     this.initCodec();
     this.initResampler();
 };
 
-RawOpusDecoder.prototype.initCodec = function () {
+Codec2Decoder.prototype.initCodec = function () {
 
     if (this.decoder) {
-        this._opus_decoder_destroy(this.decoder);
+        this._codec2_destroy(this.decoder);
         this._free(this.decoderBufferPointer);
         this._free(this.decoderOutputLengthPointer);
         this._free(this.decoderOutputPointer);
     }
 
+
     var errReference = this._malloc(4);
-    this.decoder = this._opus_decoder_create(this.config.decoderSampleRate, this.config.numberOfChannels, errReference);
+    this.encoder = this._codec2_create(this.config.mode, errReference);
     var errorCode = new Uint32Array(this.HEAPU8.buffer, errReference, 1)[0];
-    console.log("Decoder create error:", errorCode);
+    console.log("Decoder create error:", errorCode, this.encoder);
     this._free(errReference);
+
+    this.decoderBufferLength = this._codec2_samples_per_frame(this.encoder);
+    this.bytesPerFrame = this._codec2_bytes_per_frame(this.encoder);
 
     this.decoderBufferMaxLength = 4000;
     this.decoderBufferPointer = this._malloc(this.decoderBufferMaxLength);
     this.decoderBuffer = this.HEAPU8.subarray(this.decoderBufferPointer, this.decoderBufferPointer + this.decoderBufferMaxLength);
     //this.decoderBufferIndex = 0;
 
-    this.decoderOutputLengthPointer = this._malloc(4);
-    this.decoderOutputMaxLength = this.config.decoderSampleRate * this.config.numberOfChannels * 120 / 1000; // Max 120ms frame size
-    this.decoderOutputPointer = this._malloc(this.decoderOutputMaxLength * 4); // 4 bytes per sample
-    this.decoderOutput = this.HEAPU8.subarray(this.decoderOutputMaxLength * 4, this.decoderOutputMaxLength * 4 + this.decoderOutputMaxLength * 4);
+    this.decoderOutputPointer = this._malloc(this.decoderBufferLength * 4); // 4 bytes per sample
+    this.decoderOutput = this.HEAPF32.subarray(this.decoderOutputPointer, this.decoderOutputPointer + this.decoderBufferLength);
+
+    // uint16 array 
+    this.decoderOutputBufferPointer_u16 = this._malloc(this.decoderBufferLength * 2); // 2 bytes per sample
+    this.decoderOutputBuffer_u16 = this.HEAP16.subarray(this.decoderOutputBufferPointer_u16 >> 1, (this.decoderOutputBufferPointer_u16 >> 1) + this.decoderBufferLength);
 };
 
-RawOpusDecoder.prototype.initResampler = function () {
+Codec2Decoder.prototype.initResampler = function () {
 
     if (this.resampler) {
         this._speex_resampler_destroy(this.resampler);
@@ -163,7 +178,7 @@ RawOpusDecoder.prototype.initResampler = function () {
     }
 
     var errLocation = this._malloc(4);
-    this.resampler = this._speex_resampler_init(this.config.numberOfChannels, this.config.decoderSampleRate, this.config.outputBufferSampleRate, this.config.resampleQuality, errLocation);
+    this.resampler = this._speex_resampler_init(1, this.config.decoderSampleRate, this.config.outputBufferSampleRate, this.config.resampleQuality, errLocation);
     this._free(errLocation);
 
     this.resampleOutputLengthPointer = this._malloc(4);
@@ -171,41 +186,33 @@ RawOpusDecoder.prototype.initResampler = function () {
     this.resampleOutputBufferPointer = this._malloc(this.resampleOutputMaxLength * 4); // 4 bytes per sample
 };
 
-RawOpusDecoder.prototype.resetOutputBuffers = function () {
+Codec2Decoder.prototype.resetOutputBuffers = function () {
     this.outputBuffers = [];
     this.outputBufferArrayBuffers = [];
     this.outputBufferIndex = 0;
 
-    for (var i = 0; i < this.config.numberOfChannels; i++) {
-        this.outputBuffers.push(new Float32Array(this.config.bufferLength));
-        this.outputBufferArrayBuffers.push(this.outputBuffers[i].buffer);
-    }
+
+    this.outputBuffers.push(new Float32Array(this.config.bufferLength));
+    this.outputBufferArrayBuffers.push(this.outputBuffers[0].buffer);
+
 };
 
-RawOpusDecoder.prototype.sendLastBuffer = function () {
-    this.sendToOutputBuffers(new Float32Array((this.config.bufferLength - this.outputBufferIndex) * this.config.numberOfChannels));
+Codec2Decoder.prototype.sendLastBuffer = function () {
+    this.sendToOutputBuffers(new Float32Array((this.config.bufferLength - this.outputBufferIndex)));
     global['postMessage'](null);
 };
 
-RawOpusDecoder.prototype.sendToOutputBuffers = function (mergedBuffers) {
+Codec2Decoder.prototype.sendToOutputBuffers = function (mergedBuffers) {
     var dataIndex = 0;
-    var mergedBufferLength = mergedBuffers.length / this.config.numberOfChannels;
+    var mergedBufferLength = mergedBuffers.length;
 
     while (dataIndex < mergedBufferLength) {
         var amountToCopy = Math.min(mergedBufferLength - dataIndex, this.config.bufferLength - this.outputBufferIndex);
 
-        if (this.config.numberOfChannels === 1) {
-            this.outputBuffers[0].set(mergedBuffers.subarray(dataIndex, dataIndex + amountToCopy), this.outputBufferIndex);
-        }
+        // here we used to deinterleave but codec2 has only one channel
+        this.outputBuffers[0].set(mergedBuffers.subarray(dataIndex, dataIndex + amountToCopy), this.outputBufferIndex);
 
-        // Deinterleave
-        else {
-            for (var i = 0; i < amountToCopy; i++) {
-                this.outputBuffers.forEach(function (buffer, channelIndex) {
-                    buffer[this.outputBufferIndex + i] = mergedBuffers[(dataIndex + i) * this.config.numberOfChannels + channelIndex];
-                }, this);
-            }
-        }
+
 
         dataIndex += amountToCopy;
         this.outputBufferIndex += amountToCopy;
@@ -223,7 +230,7 @@ if (!Module) {
 }
 
 Module['mainReady'] = mainReady;
-Module['RawOpusDecoder'] = RawOpusDecoder;
+Module['Codec2Decoder'] = Codec2Decoder;
 Module['onRuntimeInitialized'] = mainReadyResolve;
 
 module.exports = Module;
