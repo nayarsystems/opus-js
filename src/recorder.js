@@ -43,6 +43,7 @@ var Recorder = function (config = {}) {
     streamPages: false,
     wavBitDepth: 16,
     rawOpus: false,
+    mode: 0,
     sourceNode: { context: null },
   }, config);
 
@@ -188,7 +189,8 @@ Recorder.prototype.initWorker = function () {
     this.encoder.postMessage(Object.assign({
       command: 'init',
       originalSampleRate: this.audioContext.sampleRate,
-      wavSampleRate: this.audioContext.sampleRate
+      wavSampleRate: this.audioContext.sampleRate,
+      mode: this.config.mode
     }, config));
   });
 };
