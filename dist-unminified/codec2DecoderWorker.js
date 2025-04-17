@@ -35,7 +35,7 @@ if (ENVIRONMENT_IS_NODE) {
 
 // --pre-jses are emitted after the Module integration code, so that they can
 // refer to Module (if they choose; they can also define Module)
-// include: /home/victor/code/idefix-js/examples/browser-calls/opus-js/dist-unminified/codec2ecoderWorker.js
+// include: /home/victor/code/idefix-js/examples/browser-calls/opus-js/dist-unminified/codec2DecoderWorker.js
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -158,7 +158,7 @@ eval("/* WEBPACK VAR INJECTION */(function(global) {\n\nvar decoder;\nvar mainRe
 /***/ })
 
 /******/ });
-});// end include: /home/victor/code/idefix-js/examples/browser-calls/opus-js/dist-unminified/codec2ecoderWorker.js
+});// end include: /home/victor/code/idefix-js/examples/browser-calls/opus-js/dist-unminified/codec2DecoderWorker.js
 
 
 // Sometimes an existing Module object exists with properties
@@ -558,7 +558,7 @@ var isFileURI = (filename) => filename.startsWith('file://');
 // include: runtime_exceptions.js
 // end include: runtime_exceptions.js
 function findWasmBinary() {
-    var f = 'codec2ecoderWorker.wasm';
+    var f = 'codec2DecoderWorker.wasm';
     if (!isDataURI(f)) {
       return locateFile(f);
     }
