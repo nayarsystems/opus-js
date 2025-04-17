@@ -62,11 +62,9 @@ var Codec2Decoder = function (config, Module) {
         bufferLength: 4096, // Define size of outgoing buffer
 
         mode: 0, // 0 = Mode3200, 1 = Mode2400, 2 = Mode1600, 3 = Mode1400, 4 = Mode1300, 5 = Mode1200, 6 = Mode700, 7 = Mode700B, 8 = Mode700C
-        encoderFrameSize: 20, // Specified in ms.
-        bytesPerFrame: 8,
 
-        encoderSampleRate: 8000, // Desired encoding sample rate. Audio will be resampled
-        originalSampleRate: 48000,
+        decoderSampleRate: 8000, // Desired encoding sample rate. Audio will be resampled
+        outputBufferSampleRate: 48000,
         resampleQuality: 3, // Value between 0 and 10 inclusive. 10 being highest quality.
     }, config);
 
@@ -114,14 +112,12 @@ Codec2Decoder.prototype.decode = function (typedArray) {
     this._codec2_decode(this.encoder, this.decoderOutputBufferPointer_u16, this.decoderBufferPointer);
 
     // convert decoderOutputBuffer_u16 to Float32Array
-    console.log("vik0t0r output int16", this.decoderOutputBuffer_u16);
 
     for (let i = 0; i < this.decoderBufferLength; i++) {
         var uint16_sample = this.decoderOutputBuffer_u16[i];
-        this.decoderOutput[i] = (uint16_sample / 32767.5) - 1.0;
+        this.decoderOutput[i] = (uint16_sample / 32768.0);
     }
 
-    console.log("vik0t0r output", this.decoderOutput);
     this.sendToOutputBuffers(this.decoderOutput);
 
     this.decoderBufferIndex = 0;
@@ -142,8 +138,8 @@ Codec2Decoder.prototype.initCodec = function () {
     if (this.decoder) {
         this._codec2_destroy(this.decoder);
         this._free(this.decoderBufferPointer);
-        this._free(this.decoderOutputLengthPointer);
         this._free(this.decoderOutputPointer);
+        this._free(this.decoderOutputBufferPointer_u16);
     }
 
 

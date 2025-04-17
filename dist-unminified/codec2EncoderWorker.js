@@ -941,8 +941,6 @@ var Codec2Encoder = function (config, Module) {
     this.config = Object.assign({
         mode: 0, // 0 = Mode3200, 1 = Mode2400, 2 = Mode1600, 3 = Mode1400, 4 = Mode1300, 5 = Mode1200, 6 = Mode700, 7 = Mode700B, 8 = Mode700C
         encoderFrameSize: 20, // Specified in ms.
-        bytesPerFrame: 8,
-
         encoderSampleRate: 8000, // Desired encoding sample rate. Audio will be resampled
         originalSampleRate: 48000,
         resampleQuality: 3, // Value between 0 and 10 inclusive. 10 being highest quality.
@@ -982,23 +980,14 @@ var Codec2Encoder = function (config, Module) {
     this.initCodec();
     this.initResampler();
 
-    if (this.config.numberOfChannels === 1) {
-        this.interleave = function (buffers) { return buffers[0]; };
-    }
+
 };
 
 Codec2Encoder.prototype.encode = function (buffers) {
 
     var exportPages = []
-    //console.log("vik0t0r: buffers", buffers)
 
-    // Determine bufferLength dynamically
-    if (!this.bufferLength) {
-        this.bufferLength = buffers[0].length;
-        this.interleavedBuffers = new Float32Array(this.bufferLength * this.config.numberOfChannels);
-    }
-
-    var samples = this.interleave(buffers);
+    var samples = buffers[0];
     var sampleIndex = 0;
     var bufferLength = this.resampler ? this.resampleBufferLength : this.encoderBufferLength;
     var buffer = this.resampler ? this.resampleBuffer : this.encoderBuffer;
@@ -1027,14 +1016,12 @@ Codec2Encoder.prototype.encode = function (buffers) {
             //var packetLength = this._opus_encode_float(this.encoder, this.encoderBufferPointer, this.encoderSamplesPerChannel, this.encoderOutputPointer, this.encoderOutputMaxLength);
 
             // and lets pray for everything to have the apropiated length
-            //console.log("vik0t0r, encoding input: ", this.encoderBufferPointer_u16, this.encoderBuffer_u16)
             this._codec2_encode(this.encoder, this.encoderOutputPointer, this.encoderBufferPointer_u16);
-            //console.log("vik0t0r, encoded output: ", this.encoderOutputPointer, this.encoderOutputBuffer)
 
 
             var exportPage = { message: 'page', page: new Uint8Array(this.encoderOutputBuffer.subarray(0, this.bytesPerFrame)), samplePosition: this.samplePosition }
 
-            this.samplePosition += this.encoderSamplesPerChannel;
+            this.samplePosition += this.bufferLength;
 
             exportPages.push(exportPage);
 
@@ -1071,14 +1058,13 @@ Codec2Encoder.prototype.destroy = function () {
 Codec2Encoder.prototype.initCodec = function () {
     var errLocation = this._malloc(4);
     this.encoder = this._codec2_create(this.config.mode, errLocation);
-    //console.log("vik0t0r, codec2_create: ", this.encoder, errLocation);
 
     this.encoderBufferLength = this._codec2_samples_per_frame(this.encoder);
     this.bytesPerFrame = this._codec2_bytes_per_frame(this.encoder);
     this._free(errLocation);
 
     this.encoderSamplesPerChannelPointer = this._malloc(4);
-    this.HEAP32[this.encoderSamplesPerChannelPointer >> 2] = this.encoderSamplesPerChannel;
+    this.HEAP32[this.encoderSamplesPerChannelPointer >> 2] = this.encoderBufferLength;
 
     this.sampleBufferIndex = 0;
     this.encoderBufferPointer = this._malloc(this.encoderBufferLength * 4); // 4 bytes per sample
@@ -1102,23 +1088,13 @@ Codec2Encoder.prototype.initResampler = function () {
     this.resampler = this._speex_resampler_init(1, this.config.originalSampleRate, this.config.encoderSampleRate, this.config.resampleQuality, errLocation);
     this._free(errLocation);
 
-    this.resampleSamplesPerChannel = (this.config.originalSampleRate / this.config.encoderSampleRate) * this.encoderSamplesPerChannel;
+    this.resampleSamplesPerChannel = (this.config.originalSampleRate / this.config.encoderSampleRate) * this.encoderBufferLength;
     this.resampleSamplesPerChannelPointer = this._malloc(4);
     this.HEAP32[this.resampleSamplesPerChannelPointer >> 2] = this.resampleSamplesPerChannel;
 
     this.resampleBufferLength = this.resampleSamplesPerChannel;
     this.resampleBufferPointer = this._malloc(this.resampleBufferLength * 4); // 4 bytes per sample
     this.resampleBuffer = this.HEAPF32.subarray(this.resampleBufferPointer >> 2, (this.resampleBufferPointer >> 2) + this.resampleBufferLength);
-};
-
-Codec2Encoder.prototype.interleave = function (buffers) {
-    for (var i = 0; i < this.bufferLength; i++) {
-        for (var channel = 0; channel < this.config.numberOfChannels; channel++) {
-            this.interleavedBuffers[i * this.config.numberOfChannels + channel] = buffers[channel][i];
-        }
-    }
-
-    return this.interleavedBuffers;
 };
 
 // Run in AudioWorkletGlobal scope
