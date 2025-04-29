@@ -104,12 +104,11 @@ Recorder.prototype.encodeBuffers = function (inputBuffer) {
     for (var i = 0; i < inputBuffer.numberOfChannels; i++) {
       buffers[i] = inputBuffer.getChannelData(i);
     }
-    console.log("vik0t0r: encodeBuffers"),
 
-      this.encoder.postMessage({
-        command: "encode",
-        buffers: buffers
-      });
+    this.encoder.postMessage({
+      command: "encode",
+      buffers: buffers
+    });
   }
 };
 
